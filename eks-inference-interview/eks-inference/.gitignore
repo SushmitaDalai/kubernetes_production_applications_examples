@@ -1,0 +1,6 @@
+.terraform/
+*.tfstate*
+*.tfplan
+.env
+rendered-*.yaml
+__pycache__/

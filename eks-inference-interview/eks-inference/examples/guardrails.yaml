@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ml-serving
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: inference-serving
+value: 10000
+preemptionPolicy: Never
+globalDefault: false
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: serving
+spec:
+  hard:
+    requests.cpu: '24'
+    requests.memory: 48Gi
+    limits.memory: 64Gi
+    pods: '30'
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+spec:
+  limits:
+  - type: Container
+    defaultRequest:
+      cpu: 100m
+      memory: 128Mi
+    default:
+      memory: 256Mi

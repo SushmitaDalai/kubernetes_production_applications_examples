@@ -1,0 +1,31 @@
+name: Validate study manifests
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.17.3
+      - run: |
+          set -euo pipefail
+          for env in dev stg prod; do
+            helm lint charts/inference -f "infrastructure-live/config/$env/inference-values.yaml"
+            helm template inference charts/inference -n ml-serving \
+              -f "infrastructure-live/config/$env/inference-values.yaml" > "rendered-$env.yaml"
+          done
+      - run: python -m pip install PyYAML==6.0.2
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          for path in [*Path("examples").glob("*.yaml"), *Path(".").glob("rendered-*.yaml")]:
+              for doc in yaml.safe_load_all(path.read_text()):
+                  assert {"apiVersion", "kind", "metadata"} <= doc.keys(), path
+          PY

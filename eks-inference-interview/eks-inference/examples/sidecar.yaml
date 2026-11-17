@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sidecar-demo
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  automountServiceAccountToken: false
+  containers:
+  - name: sidecar-demo
+    image: example.invalid/sidecar-demo:study
+    ports:
+    - name: http
+      containerPort: 8080
+    securityContext: &id001
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+  initContainers:
+  - name: proxy
+    image: example.invalid/proxy:study
+    ports:
+    - name: http
+      containerPort: 9090
+    securityContext: *id001
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+    restartPolicy: Always

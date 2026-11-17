@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: inference
+spec:
+  selector:
+    matchLabels:
+      app: inference
+  namespaceSelector:
+    matchNames:
+    - ml-serving
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 15s

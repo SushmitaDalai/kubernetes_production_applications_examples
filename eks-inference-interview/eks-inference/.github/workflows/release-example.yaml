@@ -1,0 +1,31 @@
+name: Explain environment promotion
+on:
+  workflow_dispatch:
+    inputs:
+      digest:
+        description: Approved inference image digest, including sha256 prefix
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  stage:
+    environment: staging
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          IMAGE_DIGEST: ${{ inputs.digest }}
+        run: |
+          [[ "$IMAGE_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "Staging would deploy and smoke-test $IMAGE_DIGEST"
+  production:
+    needs: stage
+    environment: production
+    concurrency:
+      group: inference-production
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          IMAGE_DIGEST: ${{ inputs.digest }}
+        run: echo "Production would promote the same digest $IMAGE_DIGEST"

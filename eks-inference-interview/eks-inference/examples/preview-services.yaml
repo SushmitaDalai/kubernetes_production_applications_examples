@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference
+spec:
+  selector:
+    app: inference
+    track: blue
+  ports:
+  - name: http
+    port: 8000
+    targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference-preview
+spec:
+  selector:
+    app: inference
+    track: green
+  ports:
+  - name: http
+    port: 8000
+    targetPort: http

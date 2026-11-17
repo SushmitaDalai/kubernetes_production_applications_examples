@@ -1,0 +1,3 @@
+replicaCount: 3
+image: example.invalid/inference:study
+minAvailable: 2

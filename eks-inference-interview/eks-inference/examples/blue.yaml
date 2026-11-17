@@ -1,0 +1,139 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-blue
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: inference
+      track: blue
+  template:
+    metadata:
+      labels:
+        app: inference
+        track: blue
+    spec:
+      serviceAccountName: inference
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 60
+      containers:
+      - name: inference
+        image: example.invalid/inference:study
+        ports:
+        - name: http
+          containerPort: 8000
+        securityContext: &id001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: '1'
+            memory: 2Gi
+            ephemeral-storage: 4Gi
+          limits:
+            memory: 2Gi
+            ephemeral-storage: 5Gi
+        startupProbe:
+          httpGet:
+            path: /live
+            port: http
+          periodSeconds: 5
+          failureThreshold: 60
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: http
+          periodSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          periodSeconds: 5
+          failureThreshold: 3
+        env:
+        - name: MODEL_PATH
+          value: /model/model.bin
+        volumeMounts:
+        - name: model
+          mountPath: /model
+          readOnly: true
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: inference
+            track: blue
+        nodeTaintsPolicy: Honor
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: inference
+            track: blue
+      priorityClassName: inference-serving
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: workload
+                operator: In
+                values:
+                - inference
+      tolerations:
+      - key: dedicated
+        operator: Equal
+        value: inference
+        effect: NoSchedule
+      volumes:
+      - name: model
+        emptyDir:
+          sizeLimit: 4Gi
+      initContainers:
+      - name: model-fetch
+        image: example.invalid/model-fetch:study
+        args:
+        - --source=s3://example-model-registry/models/v1/model.bin
+        - --output=/model/model.bin
+        securityContext: *id001
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            memory: 256Mi
+        volumeMounts:
+        - name: model
+          mountPath: /model
+  minReadySeconds: 15
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: inference-blue
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: inference
+      track: blue
